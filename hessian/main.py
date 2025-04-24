@@ -6,12 +6,27 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset, random_split
 import random
 import pickle
-from hess_vec_prod import create_heat_map
+import argparse
+from hess_vec_prod import create_heat_map, create_heat_map_rsvd
 
 # Set device
-# device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
+print(f"Using device: {device}")
+
+# Argument parser
+parser = argparse.ArgumentParser(description="Compute Hessian Eigenvalue Ratio Heatmap for Spiral Data")
+parser.add_argument("--x_range", type=str, default="-0.5,0.5", help="X-axis range for heatmap, format: 'min,max'")
+parser.add_argument("--y_range", type=str, default="-0.5,0.5", help="Y-axis range for heatmap, format: 'min,max'")
+parser.add_argument("--num_points", type=int, default=50, help="Number of points in each axis for heatmap")
+parser.add_argument("--num_iters", type=int, default=200, help="Number of iterations for power iteration")
+parser.add_argument("--title", type=str, default="spiral", help="Title for saving heatmap results")
+parser.add_argument("--option", type=int, default=0, help="Method to use for computing eigen values")
+
+args = parser.parse_args()
+
+# Convert string range inputs to tuples
+x_range = tuple(map(float, args.x_range.split(",")))
+y_range = tuple(map(float, args.y_range.split(",")))
 
 # Generate spiral data
 def generate_spiral_data(n_points=1000, n_cycles=5, noise_std_dev=0.1):
@@ -77,6 +92,7 @@ untraining_coords, untraining_labels = zip(*untraining_data)
 untraining_coords = torch.tensor(untraining_coords).float().to(device)
 untraining_labels = torch.tensor(untraining_labels).float().view(-1, 1).to(device)
 
+# Define Neural Network
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -107,4 +123,14 @@ model.load_state_dict(param_history[-1])
 
 loss_fn = nn.BCEWithLogitsLoss()
 
-create_heat_map(model, loss_fn, train_coords, train_labels, x_range=(-0.5, 0.5), y_range=(-0.5, 0.5), num_points=50)
+# Call the heatmap function with command-line arguments
+if args.option == 0:
+    create_heat_map(model, loss_fn, train_coords, train_labels, 
+                    x_range=x_range, y_range=y_range, 
+                    num_points=args.num_points, num_iters=args.num_iters, 
+                    title=args.title)
+else:
+    create_heat_map_rsvd(model, loss_fn, train_coords, train_labels, 
+                    x_range=x_range, y_range=y_range, 
+                    num_points=args.num_points, num_iters=args.num_iters, 
+                    title=args.title)

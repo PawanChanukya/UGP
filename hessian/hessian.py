@@ -1,3 +1,7 @@
+"""
+Here we will compute the total hessian which takes a lot of time to run
+"""
+
 import numpy as np
 import os
 import math
